@@ -24,6 +24,15 @@
             {{ __('Materias') }}
         </flux:navlist.item>
 
+        <flux:navlist.item icon="book-open" :href="route('metas')" :current="request()->routeIs('metas')" wire:navigate>
+            {{ __('Metas') }}
+        </flux:navlist.item>
+
+        <flux:navlist.item icon="book-open" :href="route('registro')" :current="request()->routeIs('registro')"
+            wire:navigate>
+            {{ __('Registro') }}
+        </flux:navlist.item>
+
         <flux:navlist variant="outline">
             <flux:navlist.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit"
                 target="_blank">

@@ -10,9 +10,10 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
 
-    // Así es como debe estar:
+
     Volt::route('materias', 'category-manager')->name('materias');
     Volt::route('metas', 'goal-manager')->name('metas');
+    Volt::route('registro', 'time-logger')->name('registro');
 
     Route::redirect('settings', 'settings/profile');
     Volt::route('settings/profile', 'settings.profile')->name('settings.profile');
@@ -20,4 +21,4 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

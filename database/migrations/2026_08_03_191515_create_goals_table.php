@@ -14,11 +14,9 @@ return new class extends Migration
         Schema::create('goals', function (Blueprint $table) {
             $table->id();
             $table->string('titulo');
-            // Vínculo directo a la tabla de materias
             $table->foreignId('category_id')->constrained()->onDelete('restrict');
-            $table->integer('horas_objetivo');
             $table->date('fecha_inicio');
-            $table->date('fecha_limite');
+            $table->boolean('estado')->default(false);
             $table->timestamps();
         });
     }
