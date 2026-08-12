@@ -13,10 +13,14 @@ return new class extends Migration
     {
         Schema::create('penalties', function (Blueprint $table) {
             $table->id();
-            $table->string('semana_correspondiente'); // Guardaremos el formato de semana, ej. "2026-W32"
-            $table->decimal('horas_faltantes', 5, 2);
-            $table->decimal('monto_penalizacion', 8, 2); // $100 MXN por hora faltante
-            $table->boolean('estado_pago')->default(false); // Por defecto, debes la lana
+            $table->date('semana_inicio');
+            $table->date('semana_fin');
+            // Decimal para soportar medias horas (ej. 2.5 horas)
+            $table->decimal('horas_faltantes', 8, 2);
+            $table->decimal('monto_multa', 10, 2);
+            // El estado de pago por defecto siempre será falso al generarse la multa
+            $table->boolean('estado_pago')->default(false);
+            $table->timestamp('fecha_pago')->nullable();
             $table->timestamps();
         });
     }

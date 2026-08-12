@@ -7,14 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 class Penalty extends Model
 {
     protected $fillable = [
-        'semana_correspondiente',
+        'semana_inicio',
+        'semana_fin',
         'horas_faltantes',
-        'monto_penalizacion',
-        'estado_pago'
+        'monto_multa',
+        'estado_pago',
+        'fecha_pago',
     ];
 
-    // Castear el booleano para que Laravel lo trate como true/false y no como 1/0
-    protected $casts = [
-        'estado_pago' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'semana_inicio' => 'date',
+            'semana_fin' => 'date',
+            'horas_faltantes' => 'decimal:2',
+            'monto_multa' => 'decimal:2',
+            'estado_pago' => 'boolean',
+            'fecha_pago' => 'datetime',
+        ];
+    }
 }
