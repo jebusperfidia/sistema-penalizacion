@@ -45,12 +45,14 @@ new class extends Component {
         </div>
         <div class="flex items-center gap-3">
             <flux:modal.trigger name="time-log-history">
-                <flux:button variant="subtle" icon="clock" class="transition-transform duration-150 hover:scale-105 hover:shadow-sm cursor-pointer">
+                <flux:button variant="subtle" icon="clock"
+                    class="transition-transform duration-150 hover:scale-105 hover:shadow-sm cursor-pointer">
                     Historial
                 </flux:button>
             </flux:modal.trigger>
             <flux:modal.trigger name="create-time-log">
-                <flux:button variant="primary" icon="plus" class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer">
+                <flux:button variant="primary" icon="plus"
+                    class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer">
                     Registrar Horas
                 </flux:button>
             </flux:modal.trigger>
@@ -68,11 +70,13 @@ new class extends Component {
                 <flux:icon name="clock" class="w-5 h-5 text-emerald-500" />
             </div>
             <div class="flex items-baseline space-x-2">
-                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($horasSemanales, 1) }}</span>
+                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($horasSemanales, 1)
+                    }}</span>
                 <span class="text-xs text-zinc-500">/ {{ $metaSemanal }} hrs meta</span>
             </div>
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
-                <div class="bg-emerald-600 h-2 rounded-full transition-all duration-300" style="width: {{ min(100, ($horasSemanales / $metaSemanal) * 100) }}%"></div>
+                <div class="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+                    style="width: {{ min(100, ($horasSemanales / $metaSemanal) * 100) }}%"></div>
             </div>
         </flux:card>
 
@@ -83,7 +87,8 @@ new class extends Component {
                 <flux:icon name="chart-bar" class="w-5 h-5 text-emerald-500" />
             </div>
             <div>
-                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($totalHorasHistoricas, 1) }}</span>
+                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($totalHorasHistoricas,
+                    1) }}</span>
                 <span class="text-xs text-zinc-500 ml-1">hrs acumuladas</span>
             </div>
             <p class="text-xs text-zinc-500 mt-2">Histórico global de aprendizaje</p>
@@ -106,13 +111,14 @@ new class extends Component {
         <flux:card class="space-y-2 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
             <div class="flex items-center justify-between">
                 <flux:subheading>Estado de Cuenta</flux:subheading>
-                <flux:icon name="shield-check" class="w-5 h-5 {{ $multasPendientes > 0 ? 'text-red-500' : 'text-emerald-500' }}" />
+                <flux:icon name="shield-check"
+                    class="w-5 h-5 {{ $multasPendientes > 0 ? 'text-red-500' : 'text-emerald-500' }}" />
             </div>
             <div>
                 @if($multasPendientes > 0)
-                    <span class="text-xl font-bold text-red-600 dark:text-red-400">Multa Pendiente</span>
+                <span class="text-xl font-bold text-red-600 dark:text-red-400">Multa Pendiente</span>
                 @else
-                    <span class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Al día</span>
+                <span class="text-xl font-bold text-emerald-600 dark:text-emerald-400">Al día</span>
                 @endif
             </div>
             <p class="text-xs text-zinc-500 mt-2">
@@ -121,14 +127,14 @@ new class extends Component {
         </flux:card>
     </div>
 
-    <!-- Tabla de Metas (PowerGrid Mejorado ocupando todo el ancho) -->
-    <flux:card class="w-full p-4 sm:p-6 transition-all duration-200 hover:shadow-lg">
-        <div class="mb-4">
+    <!-- Tabla de Metas (PowerGrid Mejorado sin doble scroll y con padding reducido) -->
+    <flux:card class="w-full p-2 sm:p-4 transition-all duration-200 hover:shadow-lg">
+        <div class="mb-4 px-2">
             <flux:heading size="lg">Metas de Aprendizaje</flux:heading>
             <flux:subheading>Detalle de materias y progreso de tiempo asignado.</flux:subheading>
         </div>
 
-        <div class="w-full overflow-x-auto">
+        <div class="w-full">
             <livewire:goal-table />
         </div>
     </flux:card>
