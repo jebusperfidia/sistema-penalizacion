@@ -27,7 +27,7 @@ new class extends Component {
                 'fecha_pago' => Carbon::now(),
             ]);
 
-            \Flux::toast('Multa liquidada. Sistema desbloqueado.');
+            \Masmerise\Toaster\Toaster::success('Multa liquidada. Sistema desbloqueado.');
 
             $this->redirectRoute('dashboard', navigate: true);
         }
