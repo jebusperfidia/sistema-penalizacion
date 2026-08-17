@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\TimeLog;
 use App\Models\Penalty;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log; // <-- Agregamos esta línea
 
 class EvaluateWeeklyGoals extends Command
 {
@@ -17,11 +18,13 @@ class EvaluateWeeklyGoals extends Command
         $fechaFin = Carbon::today();
         $fechaInicio = $fechaFin->copy()->startOfWeek();
 
-        // CANDADO: Validar si ya se te castigó esta semana para no duplicar la multa en el siguiente intento
+        // CANDADO: Validar si ya se te castigó esta semana
         $yaCastigado = Penalty::where('semana_inicio', $fechaInicio->toDateString())->exists();
 
         if ($yaCastigado) {
-            $this->info('Esta semana ya fue evaluada y tiene una penalización activa. Omitiendo.');
+            $mensaje = 'Esta semana ya fue evaluada y tiene una penalización activa. Omitiendo.';
+            $this->info($mensaje);
+            Log::warning($mensaje); // Guarda en storage/logs/laravel.log
             return;
         }
 
@@ -44,11 +47,13 @@ class EvaluateWeeklyGoals extends Command
                 'estado_pago' => false,
             ]);
 
-            $this->error("¡Castigo generado! Faltaron {$horasFaltantes} horas. Multa de \${$multa} MXN.");
+            $mensaje = "¡Castigo generado! Faltaron {$horasFaltantes} horas. Multa de \${$multa} MXN.";
+            $this->error($mensaje);
+            Log::error($mensaje); // Guarda el castigo en el log
         } else {
-            // Nota: Si llegas a la meta, el comando no guarda nada, solo ignora.
-            // Si el comando vuelve a correr a la siguiente hora, volverá a evaluar y verá que sigues cumpliendo.
-            $this->info("¡Semana superada! Total de horas: {$horasTotales}. Sin penalizaciones.");
+            $mensaje = "¡Semana superada! Total de horas: {$horasTotales}. Sin penalizaciones.";
+            $this->info($mensaje);
+            Log::info($mensaje); // Guarda la victoria en el log
         }
     }
 }

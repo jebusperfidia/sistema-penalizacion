@@ -9,8 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 
-// Ejecutar todos los días, entre las 18:00 y las 21:00 hrs, cada hora
-Schedule::command('goals:evaluate')
-    ->daily()
-    ->between('18:00', '21:00')
-    ->hourly();
+// Corre exclusivamente los domingos a las 23:59
+Schedule::command('goals:evaluate')->sundays()->at('23:59');
