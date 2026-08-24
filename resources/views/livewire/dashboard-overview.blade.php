@@ -114,8 +114,8 @@ new class extends Component {
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <flux:modal.trigger name="apply-extra-hours">
-                <flux:button variant="subtle" icon="sparkles"
-                    class="transition-transform duration-150 hover:scale-105 hover:shadow-sm cursor-pointer border-amber-300 dark:border-amber-700/60 text-amber-600 dark:text-amber-400">
+                <flux:button variant="subtle" icon="circle-stack"
+                    class="transition-transform duration-150 hover:scale-105 hover:shadow-sm cursor-pointer border-indigo-200 dark:border-indigo-800/80 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
                     Bolsa de Horas ({{ number_format($saldoHorasExtra, 1) }}h)
                 </flux:button>
             </flux:modal.trigger>
@@ -158,7 +158,7 @@ new class extends Component {
             <div class="flex items-center justify-between text-[11px] text-zinc-500 pt-1">
                 <span>{{ number_format($horasRegistradasSemana, 1) }}h en bitácora</span>
                 @if($horasExtraAplicadasEstaSemana > 0)
-                <span class="text-amber-600 dark:text-amber-400 font-semibold">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }}h extra</span>
+                <span class="text-indigo-600 dark:text-indigo-400 font-semibold">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }}h extra</span>
                 @endif
             </div>
         </flux:card>
@@ -205,7 +205,8 @@ new class extends Component {
 
                 @if($saldoHorasExtra > 0)
                 <flux:modal.trigger name="apply-extra-hours">
-                    <span class="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 cursor-pointer hover:bg-amber-100">
+                    <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1">
+                        <flux:icon name="circle-stack" class="w-3 h-3" />
                         {{ number_format($saldoHorasExtra, 1) }}h extra
                     </span>
                 </flux:modal.trigger>
@@ -221,8 +222,8 @@ new class extends Component {
     <flux:modal name="apply-extra-hours" class="md:w-[560px] space-y-6">
         <div>
             <div class="flex items-center gap-2 mb-1">
-                <div class="p-2 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                    <flux:icon name="sparkles" class="w-5 h-5" />
+                <div class="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                    <flux:icon name="circle-stack" class="w-5 h-5" />
                 </div>
                 <flux:heading size="lg">Bolsa de Horas Extras</flux:heading>
             </div>
@@ -234,7 +235,7 @@ new class extends Component {
             <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Saldo Disponible</span>
-                    <span class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ number_format($saldoHorasExtra, 1) }} hrs</span>
+                    <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ number_format($saldoHorasExtra, 1) }} hrs</span>
                 </div>
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Semana en Curso</span>
@@ -251,7 +252,7 @@ new class extends Component {
                 </div>
                 <div class="flex justify-between">
                     <span>Horas extra ya aplicadas:</span>
-                    <span class="font-semibold text-amber-600 dark:text-amber-400">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }} h</span>
+                    <span class="font-semibold text-indigo-600 dark:text-indigo-400">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }} h</span>
                 </div>
                 <div class="flex justify-between font-medium pt-1.5 border-t border-dashed border-zinc-200 dark:border-zinc-700">
                     <span>Total acumulado vs Meta ({{ number_format($metaSemanal, 0) }}h):</span>
@@ -288,7 +289,7 @@ new class extends Component {
                     <flux:button variant="subtle" class="cursor-pointer">Cancelar</flux:button>
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled"
-                    class="bg-amber-600 hover:bg-amber-700 text-white cursor-pointer flex items-center gap-2">
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer flex items-center gap-2">
                     <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading wire:target="aplicarHorasExtra" />
                     <span>Aplicar Horas</span>
                 </flux:button>
@@ -312,13 +313,13 @@ new class extends Component {
                             + Abono
                         </span>
                         @else
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400 shrink-0">
                             - Uso
                         </span>
                         @endif
                         <span class="text-zinc-600 dark:text-zinc-300 truncate">{{ $mov->descripcion }}</span>
                     </div>
-                    <div class="font-bold {{ $mov->tipo === 'acumulacion' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }} shrink-0 ml-2">
+                    <div class="font-bold {{ $mov->tipo === 'acumulacion' ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400' }} shrink-0 ml-2">
                         {{ $mov->tipo === 'acumulacion' ? '+' : '-' }}{{ number_format($mov->horas, 1) }} h
                     </div>
                 </div>
