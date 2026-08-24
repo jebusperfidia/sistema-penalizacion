@@ -5,8 +5,9 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\TimeLog;
 use App\Models\Penalty;
+use App\Models\ExtraHourMovement;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Log; // <-- Agregamos esta línea
+use Illuminate\Support\Facades\Log;
 
 class EvaluateWeeklyGoals extends Command
 {
@@ -24,19 +25,22 @@ class EvaluateWeeklyGoals extends Command
         if ($yaCastigado) {
             $mensaje = 'Esta semana ya fue evaluada y tiene una penalización activa. Omitiendo.';
             $this->info($mensaje);
-            Log::warning($mensaje); // Guarda en storage/logs/laravel.log
+            Log::warning($mensaje);
             return;
         }
 
-        $horasTotales = TimeLog::whereBetween('fecha_registro', [
+        $horasRegistradas = (float) TimeLog::whereBetween('fecha_registro', [
             $fechaInicio->toDateString(),
             $fechaFin->toDateString()
         ])->sum('horas_invertidas');
 
+        $horasExtraAplicadas = (float) ExtraHourMovement::horasAplicadasEnSemana($fechaInicio);
+        $horasEfectivas = $horasRegistradas + $horasExtraAplicadas;
+
         $metaGlobal = 16.0;
 
-        if ($horasTotales < $metaGlobal) {
-            $horasFaltantes = $metaGlobal - $horasTotales;
+        if ($horasEfectivas < $metaGlobal) {
+            $horasFaltantes = $metaGlobal - $horasEfectivas;
             $multa = $horasFaltantes * 100;
 
             Penalty::create([
@@ -47,13 +51,31 @@ class EvaluateWeeklyGoals extends Command
                 'estado_pago' => false,
             ]);
 
-            $mensaje = "¡Castigo generado! Faltaron {$horasFaltantes} horas. Multa de \${$multa} MXN.";
+            $mensaje = "¡Castigo generado! Faltaron {$horasFaltantes} horas (Registradas: {$horasRegistradas}h, Extras aplicadas: {$horasExtraAplicadas}h). Multa de \${$multa} MXN.";
             $this->error($mensaje);
-            Log::error($mensaje); // Guarda el castigo en el log
+            Log::error($mensaje);
         } else {
-            $mensaje = "¡Semana superada! Total de horas: {$horasTotales}. Sin penalizaciones.";
+            // Si las horas registradas directamente superaron la meta, registramos el excedente en la bolsa
+            if ($horasRegistradas > $metaGlobal) {
+                $excedente = round($horasRegistradas - $metaGlobal, 2);
+                $yaRegistrado = ExtraHourMovement::where('tipo', 'acumulacion')
+                    ->where('semana_inicio', $fechaInicio->toDateString())
+                    ->exists();
+
+                if (!$yaRegistrado) {
+                    ExtraHourMovement::create([
+                        'tipo' => 'acumulacion',
+                        'horas' => $excedente,
+                        'semana_inicio' => $fechaInicio->toDateString(),
+                        'semana_fin' => $fechaFin->toDateString(),
+                        'descripcion' => "Superávit de {$excedente} hrs (Total: {$horasRegistradas} hrs) en semana del " . $fechaInicio->format('d/m') . " al " . $fechaFin->format('d/m/Y'),
+                    ]);
+                }
+            }
+
+            $mensaje = "¡Semana superada! Total de horas efectivas: {$horasEfectivas} (Registradas: {$horasRegistradas}h, Extras aplicadas: {$horasExtraAplicadas}h). Sin penalizaciones.";
             $this->info($mensaje);
-            Log::info($mensaje); // Guarda la victoria en el log
+            Log::info($mensaje);
         }
     }
 }
