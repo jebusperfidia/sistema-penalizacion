@@ -11,17 +11,8 @@ class CheckPenalties
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Excluimos explícitamente la ruta de liquidación para evitar un bucle de redirecciones infinitas
-        if ($request->routeIs('penalties.liquidation')) {
-            return $next($request);
-        }
-
-        $hasUnpaidPenalty = Penalty::where('estado_pago', false)->exists();
-
-        if ($hasUnpaidPenalty) {
-            return redirect()->route('penalties.liquidation');
-        }
-
+        // El bloqueo se maneja de forma contextual e interactiva en la UI (modales y banners)
+        // manteniendo la ruta de liquidación disponible si se desea acceso directo.
         return $next($request);
     }
 }

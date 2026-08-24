@@ -4,6 +4,7 @@ use App\Models\TimeLog;
 use App\Models\Goal;
 use App\Models\Penalty;
 use App\Models\ExtraHourMovement;
+use App\Services\WeeklyGoalEvaluator;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
 use Flux\Flux;
@@ -14,6 +15,7 @@ new class extends Component {
 
     #[\Livewire\Attributes\On('log-saved')]
     #[\Livewire\Attributes\On('extra-hours-updated')]
+    #[\Livewire\Attributes\On('penalty-settled')]
     public function refreshStats()
     {
         // Se ejecuta para refrescar las estadísticas
@@ -64,6 +66,9 @@ new class extends Component {
 
     public function with(): array
     {
+        WeeklyGoalEvaluator::evaluarSemanasPendientes();
+        $penalizacionActiva = WeeklyGoalEvaluator::getPenalizacionActiva();
+
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
 
@@ -100,6 +105,7 @@ new class extends Component {
             'metaSemanal'                   => $metaSemanal,
             'inicioSemana'                  => $startOfWeek,
             'finSemana'                     => $endOfWeek,
+            'penalizacionActiva'            => $penalizacionActiva,
         ];
     }
 };
@@ -126,15 +132,53 @@ new class extends Component {
                 </flux:button>
             </flux:modal.trigger>
             <flux:modal.trigger name="create-time-log">
+                @if($penalizacionActiva)
+                <flux:button variant="danger" icon="lock-closed"
+                    class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer font-semibold shadow-red-500/20">
+                    Bloqueado: Registrar Horas
+                </flux:button>
+                @else
                 <flux:button variant="primary" icon="plus"
                     class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer">
                     Registrar Horas
                 </flux:button>
+                @endif
             </flux:modal.trigger>
         </div>
     </div>
 
     <livewire:time-logger />
+
+    <!-- Banner de Bloqueo por Penalización Pendiente -->
+    @if($penalizacionActiva)
+    <div class="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-r from-red-500/15 via-red-500/10 to-transparent p-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start gap-3.5">
+                <div class="p-2.5 rounded-xl bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
+                    <flux:icon name="lock-closed" class="w-6 h-6" />
+                </div>
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h3 class="font-bold text-red-600 dark:text-red-400 text-base">Sistema Bloqueado: Penalización Pendiente</h3>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200">
+                            Semana {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->format('d/m') }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->format('d/m') }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                        No se completó la meta semanal de 16 hrs (faltaron <strong class="text-red-600 dark:text-red-400">{{ number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</strong>). Transfiere <strong class="text-red-600 dark:text-red-400">${{ number_format($penalizacionActiva->monto_multa, 2) }} MXN</strong> a tu cuenta de ahorro para desbloquear el registro de horas.
+                    </p>
+                </div>
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+                <flux:modal.trigger name="create-time-log">
+                    <flux:button variant="danger" icon="check-circle" class="cursor-pointer font-semibold shadow-sm">
+                        Desbloquear Registro
+                    </flux:button>
+                </flux:modal.trigger>
+            </div>
+        </div>
+    </div>
+    @endif
 
     <!-- Cards Stats Grid (4 cards clásicas en 1 solo bloque) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">

@@ -2,8 +2,11 @@
 
 use App\Models\Goal;
 use App\Models\TimeLog;
+use App\Models\Penalty;
+use App\Services\WeeklyGoalEvaluator;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
+use Flux\Flux;
 
 new class extends Component {
     public $goal_id = '';
@@ -13,6 +16,12 @@ new class extends Component {
 
     // Navegación por semana en el historial (offset en semanas desde la actual)
     public int $semanaOffset = 0;
+
+    #[\Livewire\Attributes\On('penalty-settled')]
+    public function refreshState(): void
+    {
+        // Se ejecuta al liquidarse una penalización
+    }
 
     public function mount()
     {
@@ -31,8 +40,28 @@ new class extends Component {
         }
     }
 
+    public function liquidarMultaYContinuar(): void
+    {
+        $penalizacion = WeeklyGoalEvaluator::getPenalizacionActiva();
+        if ($penalizacion) {
+            $penalizacion->update([
+                'estado_pago' => true,
+                'fecha_pago'  => Carbon::now(),
+            ]);
+
+            $this->dispatch('penalty-settled');
+            $this->dispatch('extra-hours-updated');
+            \Masmerise\Toaster\Toaster::success('¡Multa liquidada! Tu registro ha sido desbloqueado.');
+        }
+    }
+
     public function saveLog()
     {
+        if (WeeklyGoalEvaluator::getPenalizacionActiva()) {
+            \Masmerise\Toaster\Toaster::error('Bloqueo activo: Debes confirmar la transferencia de la penalización antes de registrar horas.');
+            return;
+        }
+
         $hoy = Carbon::today()->toDateString();
 
         $this->validate([
@@ -61,6 +90,9 @@ new class extends Component {
 
     public function with(): array
     {
+        WeeklyGoalEvaluator::evaluarSemanasPendientes();
+        $penalizacionActiva = WeeklyGoalEvaluator::getPenalizacionActiva();
+
         $inicioSemana = Carbon::now()->startOfWeek()->addWeeks($this->semanaOffset);
         $finSemana    = $inicioSemana->copy()->endOfWeek();
 
@@ -75,63 +107,117 @@ new class extends Component {
         $logsAgrupados     = $logsDeSemanaBrutos->groupBy('fecha_registro');
 
         return [
-            'goals'            => Goal::with('category')->orderBy('fecha_inicio', 'desc')->get(),
-            'logsAgrupados'    => $logsAgrupados,
-            'totalHorasSemana' => $totalHorasSemana,
-            'diasConRegistro'  => $diasConRegistro,
-            'inicioSemana'     => $inicioSemana,
-            'finSemana'        => $finSemana,
-            'esSemanaActual'   => $this->semanaOffset === 0,
+            'goals'              => Goal::with('category')->orderBy('fecha_inicio', 'desc')->get(),
+            'logsAgrupados'      => $logsAgrupados,
+            'totalHorasSemana'   => $totalHorasSemana,
+            'diasConRegistro'    => $diasConRegistro,
+            'inicioSemana'       => $inicioSemana,
+            'finSemana'          => $finSemana,
+            'esSemanaActual'     => $this->semanaOffset === 0,
+            'penalizacionActiva' => $penalizacionActiva,
         ];
     }
 };
 ?>
 
 <div>
-    {{-- ===== MODAL: REGISTRAR HORAS ===== --}}
+    {{-- ===== MODAL: REGISTRAR HORAS / AVISO DE BLOQUEO ===== --}}
     <flux:modal name="create-time-log" class="md:w-[600px] space-y-6">
-        <div>
-            <flux:heading size="lg">Registrar Jornada de Estudio</flux:heading>
-            <flux:subheading>Anota el avance técnico del día. Recuerda: la fecha es inmutable y corresponde al día en
-                curso.</flux:subheading>
-        </div>
+        @if($penalizacionActiva)
+            <div class="space-y-6">
+                <div class="flex items-start gap-3">
+                    <div class="p-3 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 shrink-0">
+                        <flux:icon name="lock-closed" class="w-6 h-6" />
+                    </div>
+                    <div>
+                        <flux:heading size="lg" class="text-red-600 dark:text-red-400 font-bold">Registro Bloqueado</flux:heading>
+                        <flux:subheading>Tienes una penalización pendiente de la semana anterior.</flux:subheading>
+                    </div>
+                </div>
 
-        <form wire:submit="saveLog" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 rounded-xl p-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Semana Evaluada</span>
+                            <span class="font-semibold text-zinc-800 dark:text-zinc-200">
+                                {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->format('d M') }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->format('d M, Y') }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Horas Faltantes</span>
+                            <span class="font-bold text-red-600 dark:text-red-400">{{ number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</span>
+                        </div>
+                    </div>
 
-                <flux:select wire:model="goal_id" label="Meta Asociada" placeholder="Selecciona la meta...">
-                    @foreach($goals as $goal)
-                    <flux:select.option value="{{ $goal->id }}">
-                        {{ $goal->titulo }} ({{ $goal->category->nombre }})
-                    </flux:select.option>
-                    @endforeach
-                </flux:select>
+                    <div class="pt-3 border-t border-red-200 dark:border-red-800/80 flex items-baseline justify-between">
+                        <span class="text-xs text-zinc-600 dark:text-zinc-400">Monto a Transferir (Ahorro):</span>
+                        <span class="text-2xl font-black text-red-600 dark:text-red-400">
+                            ${{ number_format($penalizacionActiva->monto_multa, 2) }} MXN
+                        </span>
+                    </div>
+                </div>
 
-                <flux:input type="number" step="0.5" wire:model="horas_invertidas" label="Horas Invertidas"
-                    placeholder="Ej: 2.5" />
+                <div class="text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/60 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700/60">
+                    💡 Para mantener el compromiso con tus metas, realiza la transferencia correspondiente a tu cuenta de ahorro y luego confirma el pago para continuar registrando tus horas.
+                </div>
 
-                <flux:input type="date" wire:model="fecha_registro" label="Fecha de Registro" readonly
-                    class="md:col-span-2" />
-
-                <div class="md:col-span-2">
-                    <flux:textarea wire:model="notas_tecnicas" label="Notas Técnicas / Avances"
-                        placeholder="¿Qué aprendiste o resolviste hoy?" />
+                <div class="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+                    <flux:modal.close>
+                        <flux:button variant="subtle" class="cursor-pointer">
+                            Cerrar
+                        </flux:button>
+                    </flux:modal.close>
+                    <flux:button wire:click="liquidarMultaYContinuar" variant="danger" wire:loading.attr="disabled"
+                        class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer font-semibold flex items-center gap-2">
+                        <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading wire:target="liquidarMultaYContinuar" />
+                        <span>✅ Ya realicé la transferencia (Desbloquear)</span>
+                    </flux:button>
                 </div>
             </div>
-
-            <div class="flex justify-end gap-3">
-                <flux:modal.close>
-                    <flux:button variant="subtle"
-                        class="transition-all duration-150 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer">
-                        Cancelar</flux:button>
-                </flux:modal.close>
-                <flux:button type="submit" variant="primary" wire:loading.attr="disabled"
-                    class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer flex items-center gap-2">
-                    <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading wire:target="saveLog" />
-                    <span>Guardar Registro</span>
-                </flux:button>
+        @else
+            <div>
+                <flux:heading size="lg">Registrar Jornada de Estudio</flux:heading>
+                <flux:subheading>Anota el avance técnico del día. Recuerda: la fecha es inmutable y corresponde al día en
+                    curso.</flux:subheading>
             </div>
-        </form>
+
+            <form wire:submit="saveLog" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <flux:select wire:model="goal_id" label="Meta Asociada" placeholder="Selecciona la meta...">
+                        @foreach($goals as $goal)
+                        <flux:select.option value="{{ $goal->id }}">
+                            {{ $goal->titulo }} ({{ $goal->category->nombre }})
+                        </flux:select.option>
+                        @endforeach
+                    </flux:select>
+
+                    <flux:input type="number" step="0.5" wire:model="horas_invertidas" label="Horas Invertidas"
+                        placeholder="Ej: 2.5" />
+
+                    <flux:input type="date" wire:model="fecha_registro" label="Fecha de Registro" readonly
+                        class="md:col-span-2" />
+
+                    <div class="md:col-span-2">
+                        <flux:textarea wire:model="notas_tecnicas" label="Notas Técnicas / Avances"
+                            placeholder="¿Qué aprendiste o resolviste hoy?" />
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3">
+                    <flux:modal.close>
+                        <flux:button variant="subtle"
+                            class="transition-all duration-150 hover:bg-zinc-200 dark:hover:bg-zinc-700 cursor-pointer">
+                            Cancelar</flux:button>
+                    </flux:modal.close>
+                    <flux:button type="submit" variant="primary" wire:loading.attr="disabled"
+                        class="transition-transform duration-150 hover:scale-105 hover:shadow-md cursor-pointer flex items-center gap-2">
+                        <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading wire:target="saveLog" />
+                        <span>Guardar Registro</span>
+                    </flux:button>
+                </div>
+            </form>
+        @endif
     </flux:modal>
 
     {{-- ===== MODAL: HISTORIAL DE HORAS (Ancho forzado a 4xl) ===== --}}
