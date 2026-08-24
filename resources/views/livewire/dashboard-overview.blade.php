@@ -151,33 +151,33 @@ new class extends Component {
 
     <!-- Banner de Bloqueo por Penalización Pendiente -->
     @if($penalizacionActiva)
-    <div class="relative overflow-hidden rounded-2xl border border-red-500/40 bg-gradient-to-r from-red-500/15 via-red-500/10 to-transparent p-5 shadow-sm">
+    <flux:card class="border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/25 !p-4 md:!p-5 shadow-sm space-y-0">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-start gap-3.5">
-                <div class="p-2.5 rounded-xl bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
-                    <flux:icon name="lock-closed" class="w-6 h-6" />
+            <div class="flex items-start sm:items-center gap-3.5">
+                <div class="p-2.5 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
+                    <flux:icon name="lock-closed" class="w-5 h-5" />
                 </div>
-                <div class="space-y-1">
+                <div class="space-y-0.5">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <h3 class="font-bold text-red-600 dark:text-red-400 text-base">Sistema Bloqueado: Penalización Pendiente</h3>
+                        <span class="font-bold text-red-700 dark:text-red-400 text-sm md:text-base">Sistema Bloqueado: Penalización Pendiente</span>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200">
-                            Semana {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->format('d/m') }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->format('d/m') }}
+                            Semana {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->translatedFormat('d M') }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->translatedFormat('d M') }}
                         </span>
                     </div>
-                    <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                        No se completó la meta semanal de 16 hrs (faltaron <strong class="text-red-600 dark:text-red-400">{{ number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</strong>). Transfiere <strong class="text-red-600 dark:text-red-400">${{ number_format($penalizacionActiva->monto_multa, 2) }} MXN</strong> a tu cuenta de ahorro para desbloquear el registro de horas.
+                    <p class="text-xs md:text-sm text-zinc-600 dark:text-zinc-300">
+                        Faltaron <strong class="text-red-600 dark:text-red-400 font-semibold">{{ number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</strong> para la meta. Transfiere <strong class="text-red-600 dark:text-red-400 font-bold">${{ number_format($penalizacionActiva->monto_multa, 2) }} MXN</strong> a tu cuenta de ahorro para desbloquear el registro.
                     </p>
                 </div>
             </div>
-            <div class="shrink-0 flex items-center gap-2">
+            <div class="shrink-0 flex items-center justify-end sm:justify-start">
                 <flux:modal.trigger name="create-time-log">
-                    <flux:button variant="danger" icon="check-circle" class="cursor-pointer font-semibold shadow-sm">
+                    <flux:button variant="danger" size="sm" icon="lock-open" class="cursor-pointer font-semibold shadow-sm">
                         Desbloquear Registro
                     </flux:button>
                 </flux:modal.trigger>
             </div>
         </div>
-    </div>
+    </flux:card>
     @endif
 
     <!-- Cards Stats Grid (4 cards clásicas en 1 solo bloque) -->
