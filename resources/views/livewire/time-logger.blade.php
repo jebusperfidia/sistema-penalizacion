@@ -285,17 +285,16 @@ new class extends Component {
         @endif
     </flux:modal>
 
+
     {{-- ===== MODAL: HISTORIAL DE HORAS (Ancho forzado a 4xl) ===== --}}
     <flux:modal name="time-log-history" class="w-full !max-w-4xl">
         <div class="flex flex-col gap-6">
 
-            {{-- ── Header ── --}}
             <div>
                 <flux:heading size="lg">Bitácora de Estudio</flux:heading>
                 <flux:subheading>Historial cronológico de jornadas registradas.</flux:subheading>
             </div>
 
-            {{-- ── Navegador de semana (pill centrado) ── --}}
             <div class="flex items-center justify-center gap-3">
                 <button wire:click="semanaAnterior"
                     class="flex items-center justify-center w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 cursor-pointer shrink-0"
@@ -322,10 +321,7 @@ new class extends Component {
                 </div>
 
                 <button wire:click="semanaSiguiente" @disabled($esSemanaActual)
-                    class="flex items-center justify-center w-8 h-8 rounded-full border transition-all duration-150 shrink-0
-                    {{ $esSemanaActual
-                        ? 'border-zinc-100 dark:border-zinc-800/50 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'
-                        : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer' }}"
+                    class="flex items-center justify-center w-8 h-8 rounded-full border transition-all duration-150 shrink-0 {{ $esSemanaActual ? 'border-zinc-100 dark:border-zinc-800/50 text-zinc-300 dark:text-zinc-600 cursor-not-allowed' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer' }}"
                     title="Semana siguiente">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -333,7 +329,6 @@ new class extends Component {
                 </button>
             </div>
 
-            {{-- ── Stats de la semana ── --}}
             <div class="grid grid-cols-2 gap-4">
                 <div
                     class="flex items-center gap-4 px-5 py-4 rounded-xl border border-emerald-200/60 dark:border-emerald-500/10 bg-emerald-50/50 dark:bg-emerald-500/5">
@@ -370,41 +365,39 @@ new class extends Component {
                 </div>
             </div>
 
-            {{-- ── Feed cronológico (Estilo Agenda con Altura Fija) ── --}}
             <div class="h-[450px] overflow-y-auto overflow-x-hidden pr-2 custom-scrollbar">
-
                 <div class="space-y-6 pb-4">
                     @forelse($logsAgrupados as $fecha => $logsDelDia)
                     <div class="w-full">
-
-                        {{-- Cabecera del día (Pegajosa, con padding horizontal px-4 para respirar) --}}
                         <div
-                            class="sticky top-0 z-10 flex items-center gap-4 bg-white dark:bg-zinc-900 py-3 px-4 mb-3 border-b border-zinc-100 dark:border-zinc-800/60">
-                            <div
-                                class="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 shrink-0">
-                                <span class="text-lg font-bold text-zinc-700 dark:text-zinc-200">{{
-                                    \Carbon\Carbon::parse($fecha)->format('d') }}</span>
+                            class="sticky top-0 z-10 flex items-center justify-between bg-white dark:bg-zinc-900 py-3 px-4 mb-3 border-b border-zinc-200/80 dark:border-zinc-700/60">
+                            <div class="flex items-center gap-4">
+                                <div
+                                    class="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 shrink-0">
+                                    <span class="text-lg font-bold text-zinc-700 dark:text-zinc-200">{{
+                                        \Carbon\Carbon::parse($fecha)->format('d') }}</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100 capitalize">{{
+                                        \Carbon\Carbon::parse($fecha)->translatedFormat('l') }}</p>
+                                    <p class="text-xs text-zinc-500">{{
+                                        \Carbon\Carbon::parse($fecha)->translatedFormat('F
+                                        Y') }}</p>
+                                </div>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-bold text-zinc-800 dark:text-zinc-100 capitalize">{{
-                                    \Carbon\Carbon::parse($fecha)->translatedFormat('l') }}</p>
-                                <p class="text-xs text-zinc-500">{{ \Carbon\Carbon::parse($fecha)->translatedFormat('F
-                                    Y') }}</p>
-                            </div>
-                            <div
-                                class="shrink-0 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-sm rounded-full shadow-sm">
-                                {{ number_format($logsDelDia->sum('horas_invertidas'), 1) }} h
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="text-base font-black text-zinc-900 dark:text-white">
+                                    {{ number_format($logsDelDia->sum('horas_invertidas'), 1) }} h
+                                </span>
+                                <div class="w-8"></div>
                             </div>
                         </div>
 
-                        {{-- Tarjetas de actividades --}}
                         <div class="space-y-3 w-full px-1">
                             @foreach($logsDelDia as $log)
                             <div x-data="{ open: false }"
                                 class="group w-full flex flex-col p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/40 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">
                                 <div class="flex items-start gap-4 w-full">
-                                    {{-- Info Principal (Sin truncate para que el título baje a 2 líneas si lo necesita)
-                                    --}}
                                     <div class="flex-1 min-w-0 pt-0.5">
                                         <p class="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-snug">
                                             {{ $log->goal->titulo ?? '—' }}
@@ -414,7 +407,6 @@ new class extends Component {
                                         </p>
                                     </div>
 
-                                    {{-- Badge y Botón --}}
                                     <div class="flex items-center gap-3 shrink-0">
                                         <span class="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                                             {{ number_format($log->horas_invertidas, 1) }} h
@@ -437,7 +429,6 @@ new class extends Component {
                                     </div>
                                 </div>
 
-                                {{-- Notas Expandibles (Alineadas a la izquierda y sin espacios raros) --}}
                                 @if($log->notas_tecnicas)
                                 <div x-show="open" x-collapse
                                     class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700/50 text-left"
@@ -463,7 +454,8 @@ new class extends Component {
                         </div>
                         <p class="text-base font-medium text-zinc-600 dark:text-zinc-300">Sin registros esta semana</p>
                         <p class="text-sm text-zinc-400 dark:text-zinc-500 mt-1">Navega a otra semana para ver tu
-                            historial.</p>
+                            historial.
+                        </p>
                     </div>
                     @endforelse
                 </div>
