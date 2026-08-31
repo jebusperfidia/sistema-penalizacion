@@ -46,8 +46,8 @@ new class extends Component {
             return;
         }
 
-        $startOfWeek = Carbon::now()->startOfWeek();
-        $endOfWeek = Carbon::now()->endOfWeek();
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $endOfWeek = Carbon::now()->endOfWeek(Carbon::SUNDAY);
 
         ExtraHourMovement::create([
             'tipo' => 'aplicacion',
@@ -70,15 +70,15 @@ new class extends Component {
         WeeklyGoalEvaluator::evaluarSemanasPendientes();
         $penalizacionActiva = WeeklyGoalEvaluator::getPenalizacionActiva();
 
-        $startOfWeek = Carbon::now()->startOfWeek();
-        $endOfWeek = Carbon::now()->endOfWeek();
+        $startOfWeek = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $endOfWeek = Carbon::now()->endOfWeek(Carbon::SUNDAY);
         $metaSemanal = 16.0;
 
-        // ===== CÁLCULO DE GRACIA Y AUTO-SANACIÓN (Solo Lunes) =====
+        // ===== LÓGICA DE GRACIA Y ELIMINACIÓN DE REGISTRO (LUNES) =====
         $estadoGracia = null;
         if (Carbon::today()->isMonday()) {
-            $inicioPasada = Carbon::today()->subWeek()->startOfWeek();
-            $finPasada = Carbon::today()->subWeek()->endOfWeek();
+            $inicioPasada = Carbon::today()->subWeek()->startOfWeek(Carbon::MONDAY);
+            $finPasada = Carbon::today()->subWeek()->endOfWeek(Carbon::SUNDAY);
 
             $horasPasada = (float) TimeLog::whereBetween('fecha_registro', [$inicioPasada->toDateString(), $finPasada->toDateString()])
                 ->where('es_reposicion', false)->sum('horas_invertidas');
@@ -88,26 +88,29 @@ new class extends Component {
 
             if ($totalPasada < $metaSemanal) {
                 $deficit = round($metaSemanal - $totalPasada, 2);
-                $abonado = (float) TimeLog::where('fecha_registro', Carbon::today()->toDateString())->where('es_reposicion', true)->sum('horas_invertidas');
+                $abonado = (float) TimeLog::where('fecha_registro', Carbon::today()->toDateString())
+                    ->where('es_reposicion', true)
+                    ->sum('horas_invertidas');
+
                 $restante = max(0, round($deficit - $abonado, 2));
 
                 if ($restante > 0) {
                     $estadoGracia = [
-                        'deficit' => $deficit,
-                        'abonado' => $abonado,
+                        'deficit'  => $deficit,
+                        'abonado'  => $abonado,
                         'restante' => $restante,
                     ];
                 } else {
-                    // ¡ELIMINACIÓN AUTOMÁTICA! Si ya cubriste la cuota, eliminamos la multa ID 2 de la BD
+                    // Si el déficit ya se cubrió el lunes, eliminamos el registro de penalización de la BD
                     Penalty::where('semana_inicio', $inicioPasada->toDateString())
-                           ->where('estado_pago', false)
-                           ->delete();
+                        ->where('estado_pago', false)
+                        ->delete();
                 }
             } else {
-                // Por si el sistema generó la multa pero realmente sí había llegado a la meta
+                // Si la semana anterior cubrió la meta con horas normales o extras, eliminamos cualquier multa pendiente
                 Penalty::where('semana_inicio', $inicioPasada->toDateString())
-                       ->where('estado_pago', false)
-                       ->delete();
+                    ->where('estado_pago', false)
+                    ->delete();
             }
         }
 
