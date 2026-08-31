@@ -126,12 +126,13 @@ class WeeklyGoalEvaluator
     {
         $penalizacion = Penalty::where('estado_pago', false)->orderBy('semana_inicio', 'asc')->first();
 
-        // Si existe una multa pero hoy es Lunes y la multa corresponde a la semana que acaba de terminar,
-        // no la tratamos como bloqueo activo (está en periodo de gracia para saldarse).
         if ($penalizacion && Carbon::now()->isMonday()) {
             $semanaPasadaInicio = Carbon::now()->subWeek()->startOfWeek(Carbon::MONDAY)->toDateString();
 
-            if ($penalizacion->semana_inicio === $semanaPasadaInicio) {
+            // Convertimos ambas fechas a string puro antes de comparar
+            $fechaMultaStr = Carbon::parse($penalizacion->semana_inicio)->toDateString();
+
+            if ($fechaMultaStr === $semanaPasadaInicio) {
                 return null;
             }
         }
