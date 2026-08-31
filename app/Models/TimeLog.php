@@ -12,7 +12,7 @@ class TimeLog extends Model
         'horas_invertidas',
         'fecha_registro',
         'notas_tecnicas',
-        'es-reposicion'
+        'es_reposicion'
     ];
 
     // Este registro pertenece a un Goal

@@ -74,7 +74,7 @@ new class extends Component {
         $endOfWeek = Carbon::now()->endOfWeek();
         $metaSemanal = 16.0;
 
-        // ===== CÁLCULO DE GRACIA (Solo se activa en Lunes) =====
+        // ===== CÁLCULO DE GRACIA Y AUTO-SANACIÓN (Solo Lunes) =====
         $estadoGracia = null;
         if (Carbon::today()->isMonday()) {
             $inicioPasada = Carbon::today()->subWeek()->startOfWeek();
@@ -97,7 +97,17 @@ new class extends Component {
                         'abonado' => $abonado,
                         'restante' => $restante,
                     ];
+                } else {
+                    // ¡ELIMINACIÓN AUTOMÁTICA! Si ya cubriste la cuota, eliminamos la multa ID 2 de la BD
+                    Penalty::where('semana_inicio', $inicioPasada->toDateString())
+                           ->where('estado_pago', false)
+                           ->delete();
                 }
+            } else {
+                // Por si el sistema generó la multa pero realmente sí había llegado a la meta
+                Penalty::where('semana_inicio', $inicioPasada->toDateString())
+                       ->where('estado_pago', false)
+                       ->delete();
             }
         }
 

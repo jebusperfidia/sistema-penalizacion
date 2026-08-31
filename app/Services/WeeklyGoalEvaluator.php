@@ -17,7 +17,7 @@ class WeeklyGoalEvaluator
     public static function evaluarSemanasPendientes(): array
     {
         $resultados = [];
-        // Al correr el lunes, esto evalúa hasta la semana que terminó ayer domingo
+        // Evaluamos siempre hasta la semana que acaba de terminar
         $semanaAnteriorInicio = Carbon::now()->subWeek()->startOfWeek();
 
         $primerLog = TimeLog::min('fecha_registro');
@@ -49,12 +49,12 @@ class WeeklyGoalEvaluator
         if (Penalty::where('semana_inicio', $inicioStr)->exists()) return null;
         if (ExtraHourMovement::where('tipo', 'acumulacion')->where('semana_inicio', $inicioStr)->exists()) return null;
 
-        // 1. Horas normales de Lunes a Domingo (que no se usaron para pagar deudas anteriores)
+        // 1. Horas normales de Lunes a Domingo
         $horasRegistradas = (float) TimeLog::whereBetween('fecha_registro', [$inicioStr, $finStr])
             ->where('es_reposicion', false)
             ->sum('horas_invertidas');
 
-        // 2. Horas de rescate: Las que se hicieron el lunes siguiente y ya están marcadas
+        // 2. Horas de rescate: Las que se hicieron el lunes siguiente y se usaron para pagar
         $lunesSiguiente = $finSemana->copy()->addDay()->toDateString();
         $horasReposicionExistentes = (float) TimeLog::where('fecha_registro', $lunesSiguiente)
             ->where('es_reposicion', true)
@@ -65,30 +65,24 @@ class WeeklyGoalEvaluator
         $horasEfectivas = $horasRegistradas + $horasReposicionExistentes + $horasExtraAplicadas;
         $metaGlobal = self::META_GLOBAL_SEMANAL;
 
-        // 3. ¡EL SALVAVIDAS DEL LUNES! Si aún faltan horas, intentamos cobrarnos de los logs de este lunes
-        if ($horasEfectivas < $metaGlobal) {
-            $logsLunes = TimeLog::where('fecha_registro', $lunesSiguiente)
-                ->where('es_reposicion', false)
-                ->orderBy('created_at', 'asc')
-                ->get();
+        // Identificar si la semana que estamos revisando es exactamente la semana pasada
+        $esSemanaPasada = $inicioStr === Carbon::now()->subWeek()->startOfWeek()->toDateString();
 
-            foreach ($logsLunes as $log) {
-                if ($horasEfectivas >= $metaGlobal) break;
-
-                // Nos comemos el log completo para pagar la deuda
-                $log->es_reposicion = true;
-                $log->save();
-
-                $horasEfectivas += $log->horas_invertidas;
-                Log::info("Salvavidas activado: Log de {$log->horas_invertidas}h del lunes {$lunesSiguiente} consumido para la semana del {$inicioStr}.");
-            }
-        }
-
-        // 4. Veredicto Final
         if ($horasEfectivas < $metaGlobal) {
             $horasFaltantes = round($metaGlobal - $horasEfectivas, 2);
-            $multa = $horasFaltantes * self::MONTO_POR_HORA_FALTANTE;
 
+            // ESCUDO DE LUNES: Si es Lunes y estamos evaluando la semana pasada, NO multamos aún.
+            if (Carbon::now()->isMonday() && $esSemanaPasada) {
+                return [
+                    'tipo'            => 'gracia',
+                    'semana_inicio'   => $inicioStr,
+                    'semana_fin'      => $finStr,
+                    'horas_faltantes' => $horasFaltantes,
+                ];
+            }
+
+            // Si es martes en adelante, o es una deuda muy vieja... cae la guillotina.
+            $multa = $horasFaltantes * self::MONTO_POR_HORA_FALTANTE;
             $penalty = Penalty::create([
                 'semana_inicio'   => $inicioStr,
                 'semana_fin'      => $finStr,
@@ -130,6 +124,17 @@ class WeeklyGoalEvaluator
 
     public static function getPenalizacionActiva(): ?Penalty
     {
-        return Penalty::where('estado_pago', false)->orderBy('semana_inicio', 'asc')->first();
+        $penalizacion = Penalty::where('estado_pago', false)->orderBy('semana_inicio', 'asc')->first();
+
+        // ESCUDO: Si hoy es lunes y la multa que encontró es de la semana que acaba de terminar,
+        // la ignoramos para no bloquear el sistema y permitir la captura de reposición.
+        if ($penalizacion && Carbon::now()->isMonday()) {
+            $semanaPasada = Carbon::now()->subWeek()->startOfWeek()->toDateString();
+            if ($penalizacion->semana_inicio === $semanaPasada) {
+                return null;
+            }
+        }
+
+        return $penalizacion;
     }
 }
