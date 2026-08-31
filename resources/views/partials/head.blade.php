@@ -7,5 +7,4 @@
 <link href="https://fonts.bunny.net/css?family=roboto:300,400,500,700" rel="stylesheet" />
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
-<x-toaster-hub />
 @fluxAppearance

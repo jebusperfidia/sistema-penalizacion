@@ -1,10 +1,8 @@
-@import 'tailwindcss';
-@import '../../vendor/livewire/flux/dist/flux.css';
-
+@import "tailwindcss";
+@import "../../vendor/livewire/flux/dist/flux.css";
 
 @import "tailwindcss";
-@import '../../vendor/power-components/livewire-powergrid/resources/css/tailwind4.css';
-
+@import "../../vendor/power-components/livewire-powergrid/resources/css/tailwind4.css";
 
 /** enable dark mode */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -14,8 +12,6 @@
 @source '../../vendor/power-components/livewire-powergrid/src/Themes/Tailwind.php';
 @source '../../vendor/power-components/livewire-powergrid/resources/views/**/*.php';
 
-
-
 @source "../views";
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
@@ -24,7 +20,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Roboto', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -52,7 +48,6 @@
 }
 
 @layer base {
-
     *,
     ::after,
     ::before,
@@ -67,7 +62,7 @@
 }
 
 [data-flux-label] {
-    @apply  !mb-0 !leading-tight;
+    @apply !mb-0 !leading-tight;
 }
 
 input:focus[data-flux-control],
@@ -80,20 +75,19 @@ select:focus[data-flux-control] {
     @apply size-4;
 } */
 
-
 /* Custom theme */
 @theme {
- --color-pg-primary-50: oklch(0.985 0 0);
- --color-pg-primary-100: oklch(0.97 0 0);
- --color-pg-primary-200: oklch(0.922 0 0);
- --color-pg-primary-300: oklch(0.87 0 0);
- --color-pg-primary-400: oklch(0.708 0 0);
- --color-pg-primary-500: oklch(0.556 0 0);
- --color-pg-primary-600: oklch(0.439 0 0);
- --color-pg-primary-700: oklch(0.371 0 0);
- --color-pg-primary-800: oklch(0.269 0 0);
- --color-pg-primary-900: oklch(0.205 0 0);
- --color-pg-primary-950: oklch(0.145 0 0);
+    --color-pg-primary-50: oklch(0.985 0 0);
+    --color-pg-primary-100: oklch(0.97 0 0);
+    --color-pg-primary-200: oklch(0.922 0 0);
+    --color-pg-primary-300: oklch(0.87 0 0);
+    --color-pg-primary-400: oklch(0.708 0 0);
+    --color-pg-primary-500: oklch(0.556 0 0);
+    --color-pg-primary-600: oklch(0.439 0 0);
+    --color-pg-primary-700: oklch(0.371 0 0);
+    --color-pg-primary-800: oklch(0.269 0 0);
+    --color-pg-primary-900: oklch(0.205 0 0);
+    --color-pg-primary-950: oklch(0.145 0 0);
 }
 
 /* Flux Modal Backdrop Customization */
@@ -103,4 +97,8 @@ dialog::backdrop {
     backdrop-filter: blur(3px) !important;
     -webkit-backdrop-filter: blur(3px) !important;
     transition: all 0.2s ease-out !important;
+}
+
+#toaster {
+    z-index: 99999 !important; /* Tomen eso, modales */
 }

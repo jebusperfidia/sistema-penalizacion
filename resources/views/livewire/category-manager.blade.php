@@ -2,6 +2,7 @@
 use App\Models\Category;
 use Livewire\Volt\Component;
 use Illuminate\Database\QueryException;
+use Masmerise\Toaster\Toaster;
 
 new class extends Component {
     public $nombre = '';
@@ -22,10 +23,10 @@ new class extends Component {
 
         if ($this->editandoId) {
             Category::find($this->editandoId)->update(['nombre' => $this->nombre]);
-            \Masmerise\Toaster\Toaster::success('Materia actualizada.');
+            Toaster::success('Materia actualizada con éxito.');
         } else {
             Category::create(['nombre' => $this->nombre]);
-            \Masmerise\Toaster\Toaster::success('Materia creada.');
+            Toaster::success('Materia creada con éxito.');
         }
 
         $this->reset(['nombre', 'editandoId']);
@@ -45,9 +46,9 @@ new class extends Component {
     {
         try {
             Category::find($id)->delete();
-            \Masmerise\Toaster\Toaster::success('Materia eliminada correctamente.');
+            Toaster::success('Materia eliminada correctamente.');
         } catch (QueryException $e) {
-            \Masmerise\Toaster\Toaster::error('No puedes eliminar esta materia porque ya tiene metas asignadas.');
+            Toaster::error('No puedes eliminar esta materia porque ya tiene metas asignadas.');
         }
     }
 

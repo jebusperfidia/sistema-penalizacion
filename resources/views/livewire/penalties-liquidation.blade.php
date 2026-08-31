@@ -4,6 +4,7 @@ use App\Models\Penalty;
 use Livewire\Volt\Component;
 use Flux\Flux;
 use Carbon\Carbon;
+use Masmerise\Toaster\Toaster;
 
 new class extends Component {
     public ?Penalty $penalty = null;
@@ -27,7 +28,7 @@ new class extends Component {
                 'fecha_pago' => Carbon::now(),
             ]);
 
-            \Masmerise\Toaster\Toaster::success('Multa liquidada. Sistema desbloqueado.');
+            Toaster::success('Multa liquidada. Sistema desbloqueado.');
 
             $this->redirectRoute('dashboard', navigate: true);
         }

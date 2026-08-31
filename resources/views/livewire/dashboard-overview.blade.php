@@ -8,6 +8,7 @@ use App\Services\WeeklyGoalEvaluator;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
 use Flux\Flux;
+use Masmerise\Toaster\Toaster;
 
 new class extends Component {
     public $horasAplicar = '';
@@ -41,7 +42,7 @@ new class extends Component {
         ]);
 
         if ($saldoDisponible < (float) $this->horasAplicar) {
-            \Masmerise\Toaster\Toaster::error('Saldo insuficiente de horas extras.');
+            Toaster::error('Saldo insuficiente de horas extras.');
             return;
         }
 
@@ -61,7 +62,7 @@ new class extends Component {
 
         Flux::modal('apply-extra-hours')->close();
         $this->dispatch('extra-hours-updated');
-        \Masmerise\Toaster\Toaster::success("¡Se aplicaron {$horasAplicadasTexto} hrs extra a esta semana con éxito!");
+        Toaster::success("¡Se aplicaron {$horasAplicadasTexto} hrs extra a esta semana con éxito!");
     }
 
     public function with(): array
@@ -71,27 +72,46 @@ new class extends Component {
 
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
+        $metaSemanal = 16.0;
 
-        // 1. Horas registradas en la semana actual mediante bitácora
+        // ===== CÁLCULO DE GRACIA (Solo se activa en Lunes) =====
+        $estadoGracia = null;
+        if (Carbon::today()->isMonday()) {
+            $inicioPasada = Carbon::today()->subWeek()->startOfWeek();
+            $finPasada = Carbon::today()->subWeek()->endOfWeek();
+
+            $horasPasada = (float) TimeLog::whereBetween('fecha_registro', [$inicioPasada->toDateString(), $finPasada->toDateString()])
+                ->where('es_reposicion', false)->sum('horas_invertidas');
+
+            $horasExtraPasada = (float) ExtraHourMovement::horasAplicadasEnSemana($inicioPasada);
+            $totalPasada = $horasPasada + $horasExtraPasada;
+
+            if ($totalPasada < $metaSemanal) {
+                $deficit = round($metaSemanal - $totalPasada, 2);
+                $abonado = (float) TimeLog::where('fecha_registro', Carbon::today()->toDateString())->where('es_reposicion', true)->sum('horas_invertidas');
+                $restante = max(0, round($deficit - $abonado, 2));
+
+                if ($restante > 0) {
+                    $estadoGracia = [
+                        'deficit' => $deficit,
+                        'abonado' => $abonado,
+                        'restante' => $restante,
+                    ];
+                }
+            }
+        }
+
         $horasRegistradasSemana = (float) TimeLog::whereBetween('fecha_registro', [$startOfWeek->toDateString(), $endOfWeek->toDateString()])
-            ->sum('horas_invertidas');
+            ->where('es_reposicion', false)->sum('horas_invertidas');
 
-        // 2. Horas extra aplicadas voluntariamente a la semana actual
         $horasExtraAplicadasEstaSemana = ExtraHourMovement::horasAplicadasEnSemana($startOfWeek);
-
-        // 3. Horas totales efectivas (registradas + extras aplicadas)
         $horasEfectivasSemana = $horasRegistradasSemana + $horasExtraAplicadasEstaSemana;
-
-        // 4. Saldo total disponible en la bolsa de horas extra
         $saldoHorasExtra = ExtraHourMovement::saldoDisponible();
-
-        // 5. Historial reciente de movimientos de horas extras
         $movimientosHorasExtra = ExtraHourMovement::orderBy('created_at', 'desc')->take(6)->get();
 
         $totalHorasHistoricas = (float) TimeLog::sum('horas_invertidas');
         $metasActivas = Goal::where('estado', false)->count();
         $multasPendientes = Penalty::where('estado_pago', false)->count();
-        $metaSemanal = 16.0;
 
         return [
             'horasRegistradasSemana'        => $horasRegistradasSemana,
@@ -106,6 +126,7 @@ new class extends Component {
             'inicioSemana'                  => $startOfWeek,
             'finSemana'                     => $endOfWeek,
             'penalizacionActiva'            => $penalizacionActiva,
+            'estadoGracia'                  => $estadoGracia,
         ];
     }
 };
@@ -151,7 +172,8 @@ new class extends Component {
 
     <!-- Banner de Bloqueo por Penalización Pendiente -->
     @if($penalizacionActiva)
-    <flux:card class="border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/25 !p-4 md:!p-5 shadow-sm space-y-0">
+    <flux:card
+        class="border-red-200 dark:border-red-900/60 bg-red-50/70 dark:bg-red-950/25 !p-4 md:!p-5 shadow-sm space-y-0">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-start sm:items-center gap-3.5">
                 <div class="p-2.5 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 shrink-0">
@@ -159,19 +181,27 @@ new class extends Component {
                 </div>
                 <div class="space-y-0.5">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-red-700 dark:text-red-400 text-sm md:text-base">Sistema Bloqueado: Penalización Pendiente</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200">
-                            Semana {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->translatedFormat('d M') }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->translatedFormat('d M') }}
+                        <span class="font-bold text-red-700 dark:text-red-400 text-sm md:text-base">Sistema Bloqueado:
+                            Penalización Pendiente</span>
+                        <span
+                            class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200">
+                            Semana {{ \Carbon\Carbon::parse($penalizacionActiva->semana_inicio)->translatedFormat('d M')
+                            }} al {{ \Carbon\Carbon::parse($penalizacionActiva->semana_fin)->translatedFormat('d M') }}
                         </span>
                     </div>
                     <p class="text-xs md:text-sm text-zinc-600 dark:text-zinc-300">
-                        Faltaron <strong class="text-red-600 dark:text-red-400 font-semibold">{{ number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</strong> para la meta. Transfiere <strong class="text-red-600 dark:text-red-400 font-bold">${{ number_format($penalizacionActiva->monto_multa, 2) }} MXN</strong> a tu cuenta de ahorro para desbloquear el registro.
+                        Faltaron <strong class="text-red-600 dark:text-red-400 font-semibold">{{
+                            number_format($penalizacionActiva->horas_faltantes, 1) }} hrs</strong> para la meta.
+                        Transfiere <strong class="text-red-600 dark:text-red-400 font-bold">${{
+                            number_format($penalizacionActiva->monto_multa, 2) }} MXN</strong> a tu cuenta de ahorro
+                        para desbloquear el registro.
                     </p>
                 </div>
             </div>
             <div class="shrink-0 flex items-center justify-end sm:justify-start">
                 <flux:modal.trigger name="create-time-log">
-                    <flux:button variant="danger" size="sm" icon="lock-open" class="cursor-pointer font-semibold shadow-sm">
+                    <flux:button variant="danger" size="sm" icon="lock-open"
+                        class="cursor-pointer font-semibold shadow-sm">
                         Desbloquear Registro
                     </flux:button>
                 </flux:modal.trigger>
@@ -179,6 +209,56 @@ new class extends Component {
         </div>
     </flux:card>
     @endif
+
+
+
+
+    <!-- Banner de Periodo de Gracia (Aparece solo en lunes con déficit) -->
+    @if($estadoGracia)
+    <flux:card
+        class="border-orange-200 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/25 !p-4 md:!p-5 shadow-sm space-y-0">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-3.5">
+                <div
+                    class="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 shrink-0">
+                    <flux:icon name="exclamation-triangle" class="w-5 h-5" />
+                </div>
+                <div class="space-y-0.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-orange-700 dark:text-orange-400 text-sm md:text-base">🚨 Última
+                            oportunidad: Lunes de Gracia</span>
+                    </div>
+                    <p class="text-xs md:text-sm text-zinc-600 dark:text-zinc-300">
+                        Te faltaron <strong>{{ $estadoGracia['deficit'] }}h</strong> la semana pasada. Registra el
+                        tiempo
+                        faltante antes de medianoche o se aplicará multa.
+                    </p>
+                </div>
+            </div>
+            <div class="shrink-0 flex flex-col items-end gap-1">
+                <span class="text-2xl font-black text-orange-600 dark:text-orange-400 leading-none">
+                    -{{ number_format($estadoGracia['restante'], 1) }}h
+                </span>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-orange-500/80">
+                    Por Saldar
+                </span>
+            </div>
+        </div>
+        <!-- Progress Bar del Abono -->
+        <div class="mt-4 flex items-center gap-3">
+            <div class="w-full bg-orange-200/50 dark:bg-orange-900/40 rounded-full h-1.5">
+                <div class="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                    style="width: {{ min(100, ($estadoGracia['abonado'] / $estadoGracia['deficit']) * 100) }}%"></div>
+            </div>
+            <span class="text-xs font-semibold text-orange-700 dark:text-orange-400 shrink-0">
+                Abonado: {{ number_format($estadoGracia['abonado'], 1) }}h
+            </span>
+        </div>
+    </flux:card>
+    @endif
+
+
+
 
     <!-- Cards Stats Grid (4 cards clásicas en 1 solo bloque) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
@@ -189,10 +269,11 @@ new class extends Component {
                 <flux:icon name="clock" class="w-5 h-5 text-emerald-500" />
             </div>
             <div class="flex items-baseline space-x-2">
-                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($horasEfectivasSemana, 1) }}</span>
+                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($horasEfectivasSemana,
+                    1) }}</span>
                 <span class="text-xs text-zinc-500">/ {{ number_format($metaSemanal, 0) }} hrs meta</span>
             </div>
-            
+
             <!-- Barra de Progreso hacia la Meta -->
             <div class="w-full bg-zinc-200 dark:bg-zinc-700 rounded-full h-2 mt-2">
                 <div class="bg-emerald-600 h-2 rounded-full transition-all duration-300"
@@ -202,7 +283,8 @@ new class extends Component {
             <div class="flex items-center justify-between text-[11px] text-zinc-500 pt-1">
                 <span>{{ number_format($horasRegistradasSemana, 1) }}h en bitácora</span>
                 @if($horasExtraAplicadasEstaSemana > 0)
-                <span class="text-indigo-600 dark:text-indigo-400 font-semibold">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }}h extra</span>
+                <span class="text-indigo-600 dark:text-indigo-400 font-semibold">+{{
+                    number_format($horasExtraAplicadasEstaSemana, 1) }}h extra</span>
                 @endif
             </div>
         </flux:card>
@@ -214,7 +296,8 @@ new class extends Component {
                 <flux:icon name="chart-bar" class="w-5 h-5 text-emerald-500" />
             </div>
             <div>
-                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($totalHorasHistoricas, 1) }}</span>
+                <span class="text-3xl font-bold text-zinc-900 dark:text-white">{{ number_format($totalHorasHistoricas,
+                    1) }}</span>
                 <span class="text-xs text-zinc-500 ml-1">hrs acumuladas</span>
             </div>
             <p class="text-xs text-zinc-500 mt-2">Histórico global de aprendizaje</p>
@@ -249,7 +332,8 @@ new class extends Component {
 
                 @if($saldoHorasExtra > 0)
                 <flux:modal.trigger name="apply-extra-hours">
-                    <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1">
+                    <span
+                        class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800 cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors flex items-center gap-1">
                         <flux:icon name="circle-stack" class="w-3 h-3" />
                         {{ number_format($saldoHorasExtra, 1) }}h extra
                     </span>
@@ -257,7 +341,8 @@ new class extends Component {
                 @endif
             </div>
             <p class="text-xs text-zinc-500 mt-2">
-                {{ $multasPendientes > 0 ? 'Tienes un cobro sin liquidar' : ($saldoHorasExtra > 0 ? 'Tienes horas a favor en tu bolsa' : 'Sin penalizaciones activas') }}
+                {{ $multasPendientes > 0 ? 'Tienes un cobro sin liquidar' : ($saldoHorasExtra > 0 ? 'Tienes horas a
+                favor en tu bolsa' : 'Sin penalizaciones activas') }}
             </p>
         </flux:card>
     </div>
@@ -271,15 +356,18 @@ new class extends Component {
                 </div>
                 <flux:heading size="lg">Bolsa de Horas Extras</flux:heading>
             </div>
-            <flux:subheading>Aplica tus horas acumuladas a favor para reducir o evitar penalizaciones en la semana en curso.</flux:subheading>
+            <flux:subheading>Aplica tus horas acumuladas a favor para reducir o evitar penalizaciones en la semana en
+                curso.</flux:subheading>
         </div>
 
         <!-- Resumen de Estado -->
-        <div class="bg-zinc-50 dark:bg-zinc-800/60 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 space-y-3">
+        <div
+            class="bg-zinc-50 dark:bg-zinc-800/60 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700/60 space-y-3">
             <div class="grid grid-cols-2 gap-3 text-sm">
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Saldo Disponible</span>
-                    <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ number_format($saldoHorasExtra, 1) }} hrs</span>
+                    <span class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{
+                        number_format($saldoHorasExtra, 1) }} hrs</span>
                 </div>
                 <div>
                     <span class="text-xs text-zinc-500 dark:text-zinc-400 block">Semana en Curso</span>
@@ -289,24 +377,30 @@ new class extends Component {
                 </div>
             </div>
 
-            <div class="pt-3 border-t border-zinc-200 dark:border-zinc-700/70 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
+            <div
+                class="pt-3 border-t border-zinc-200 dark:border-zinc-700/70 text-xs text-zinc-600 dark:text-zinc-400 space-y-1.5">
                 <div class="flex justify-between">
                     <span>Horas registradas en bitácora:</span>
-                    <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{ number_format($horasRegistradasSemana, 1) }} h</span>
+                    <span class="font-semibold text-zinc-800 dark:text-zinc-200">{{
+                        number_format($horasRegistradasSemana, 1) }} h</span>
                 </div>
                 <div class="flex justify-between">
                     <span>Horas extra ya aplicadas:</span>
-                    <span class="font-semibold text-indigo-600 dark:text-indigo-400">+{{ number_format($horasExtraAplicadasEstaSemana, 1) }} h</span>
+                    <span class="font-semibold text-indigo-600 dark:text-indigo-400">+{{
+                        number_format($horasExtraAplicadasEstaSemana, 1) }} h</span>
                 </div>
-                <div class="flex justify-between font-medium pt-1.5 border-t border-dashed border-zinc-200 dark:border-zinc-700">
+                <div
+                    class="flex justify-between font-medium pt-1.5 border-t border-dashed border-zinc-200 dark:border-zinc-700">
                     <span>Total acumulado vs Meta ({{ number_format($metaSemanal, 0) }}h):</span>
-                    <span class="{{ $horasEfectivasSemana >= $metaSemanal ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-200' }} font-bold">
+                    <span
+                        class="{{ $horasEfectivasSemana >= $metaSemanal ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-200' }} font-bold">
                         {{ number_format($horasEfectivasSemana, 1) }} / {{ number_format($metaSemanal, 0) }} h
-                        @if($horasEfectivasSemana < $metaSemanal)
-                            <span class="text-zinc-500 dark:text-zinc-400 font-normal">(Faltan {{ number_format($metaSemanal - $horasEfectivasSemana, 1) }}h)</span>
-                        @else
-                            <span class="text-emerald-600 dark:text-emerald-400 font-semibold">(¡Meta cubierta!)</span>
-                        @endif
+                        @if($horasEfectivasSemana < $metaSemanal) <span
+                            class="text-zinc-500 dark:text-zinc-400 font-normal">(Faltan {{ number_format($metaSemanal -
+                            $horasEfectivasSemana, 1) }}h)</span>
+                    @else
+                    <span class="text-emerald-600 dark:text-emerald-400 font-semibold">(¡Meta cubierta!)</span>
+                    @endif
                     </span>
                 </div>
             </div>
@@ -315,16 +409,14 @@ new class extends Component {
         @if($saldoHorasExtra > 0)
         <form wire:submit="aplicarHorasExtra" class="space-y-4">
             <div class="space-y-1">
-                <flux:input type="number" step="0.5" min="0.5" max="{{ $saldoHorasExtra }}"
-                    wire:model="horasAplicar"
-                    label="Horas a aplicar a esta semana"
-                    placeholder="Ej. 1.0" />
-                <p class="text-xs text-zinc-500">Puedes aplicar desde 0.5 hasta {{ number_format($saldoHorasExtra, 1) }} horas de tu saldo.</p>
+                <flux:input type="number" step="0.5" min="0.5" max="{{ $saldoHorasExtra }}" wire:model="horasAplicar"
+                    label="Horas a aplicar a esta semana" placeholder="Ej. 1.0" />
+                <p class="text-xs text-zinc-500">Puedes aplicar desde 0.5 hasta {{ number_format($saldoHorasExtra, 1) }}
+                    horas de tu saldo.</p>
             </div>
 
             <div>
-                <flux:input type="text" wire:model="motivoAplicacion"
-                    label="Nota o Motivo (opcional)"
+                <flux:input type="text" wire:model="motivoAplicacion" label="Nota o Motivo (opcional)"
                     placeholder="Ej. Compensación por imprevisto laboral" />
             </div>
 
@@ -334,14 +426,16 @@ new class extends Component {
                 </flux:modal.close>
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled"
                     class="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer flex items-center gap-2">
-                    <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading wire:target="aplicarHorasExtra" />
+                    <flux:icon name="arrow-path" class="w-4 h-4 animate-spin" wire:loading
+                        wire:target="aplicarHorasExtra" />
                     <span>Aplicar Horas</span>
                 </flux:button>
             </div>
         </form>
         @else
         <div class="p-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            No tienes saldo disponible de horas extras actualmente. Las horas que superen las 16 horas en una semana se acumularán automáticamente en tu bolsa.
+            No tienes saldo disponible de horas extras actualmente. Las horas que superen las 16 horas en una semana se
+            acumularán automáticamente en tu bolsa.
         </div>
         @endif
 
@@ -350,20 +444,24 @@ new class extends Component {
             <flux:heading size="sm" class="mb-2">Últimos Movimientos de la Bolsa</flux:heading>
             <div class="max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                 @forelse($movimientosHorasExtra as $mov)
-                <div class="flex items-center justify-between p-2.5 rounded-lg border border-zinc-200/70 dark:border-zinc-700/50 text-xs bg-white dark:bg-zinc-800/40">
+                <div
+                    class="flex items-center justify-between p-2.5 rounded-lg border border-zinc-200/70 dark:border-zinc-700/50 text-xs bg-white dark:bg-zinc-800/40">
                     <div class="flex items-center gap-2 min-w-0">
                         @if($mov->tipo === 'acumulacion')
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">
+                        <span
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 shrink-0">
                             + Abono
                         </span>
                         @else
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400 shrink-0">
+                        <span
+                            class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400 shrink-0">
                             - Uso
                         </span>
                         @endif
                         <span class="text-zinc-600 dark:text-zinc-300 truncate">{{ $mov->descripcion }}</span>
                     </div>
-                    <div class="font-bold {{ $mov->tipo === 'acumulacion' ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400' }} shrink-0 ml-2">
+                    <div
+                        class="font-bold {{ $mov->tipo === 'acumulacion' ? 'text-emerald-600 dark:text-emerald-400' : 'text-indigo-600 dark:text-indigo-400' }} shrink-0 ml-2">
                         {{ $mov->tipo === 'acumulacion' ? '+' : '-' }}{{ number_format($mov->horas, 1) }} h
                     </div>
                 </div>

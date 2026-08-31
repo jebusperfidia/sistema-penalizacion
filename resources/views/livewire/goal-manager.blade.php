@@ -4,6 +4,7 @@ use App\Models\Goal;
 use App\Models\Category;
 use Livewire\Volt\Component;
 use Flux\Flux;
+use Masmerise\Toaster\Toaster;
 
 new class extends Component {
     public $titulo = '';
@@ -32,14 +33,14 @@ new class extends Component {
                 'category_id' => $this->category_id,
                 'fecha_inicio' => $this->fecha_inicio,
             ]);
-            \Masmerise\Toaster\Toaster::success('Meta actualizada con éxito.');
+            Toaster::success('Meta actualizada con éxito.');
         } else {
             Goal::create([
                 'titulo' => $this->titulo,
                 'category_id' => $this->category_id,
                 'fecha_inicio' => $this->fecha_inicio,
             ]);
-            \Masmerise\Toaster\Toaster::success('Meta registrada con éxito.');
+            Toaster::success('Meta registrada con éxito.');
         }
 
         $this->reset(['titulo', 'category_id', 'fecha_inicio', 'editandoId']);
@@ -60,7 +61,7 @@ new class extends Component {
     public function deleteGoal($id)
     {
         Goal::find($id)->delete();
-        \Masmerise\Toaster\Toaster::success('Meta eliminada correctamente.');
+        Toaster::success('Meta eliminada correctamente.');
     }
 
     public function with(): array
